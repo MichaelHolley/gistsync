@@ -115,6 +115,10 @@ gistsync status
 | `never pushed`    | no gist yet for this name                          | `push` or `link`  |
 | `missing locally` | the configured path does not exist                 | `pull`            |
 
+The state column is colour-coded when stdout is a terminal — green `clean`, yellow `ahead`,
+cyan `behind`, red `conflict`/`missing locally`, magenta `never pushed`. Set `NO_COLOR` or pipe
+the output to get plain text.
+
 Offline, `status` still works: it prints `remote unknown` per file and tells you whether the
 local copy changed. `push`, `pull`, `link`, and `add` need the network and fail loudly
 without it, changing nothing.

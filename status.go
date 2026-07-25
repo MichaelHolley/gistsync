@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"text/tabwriter"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/MichaelHolley/gistsync/internal/config"
 	"github.com/MichaelHolley/gistsync/internal/gh"
@@ -67,13 +68,51 @@ func runStatus(args []string) error {
 		fmt.Fprintln(os.Stderr, "gistsync: GitHub is unreachable — showing local information only")
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATE\tPATH")
+	type row struct{ name, state, path string }
+	rows := make([]row, 0, len(cfg.Files))
+	nameW, stateW := utf8.RuneCountInString("NAME"), utf8.RuneCountInString("STATE")
 	for _, f := range cfg.Files {
 		rec, _ := st.Find(f.Name)
-		fmt.Fprintf(w, "%s\t%s\t%s\n", f.Name, describe(f, rec, online), f.Path)
+		r := row{f.Name, describe(f, rec, online), f.Path}
+		nameW = max(nameW, utf8.RuneCountInString(r.name))
+		stateW = max(stateW, utf8.RuneCountInString(r.state))
+		rows = append(rows, r)
 	}
-	return w.Flush()
+
+	fmt.Printf("%-*s  %-*s  %s\n", nameW, "NAME", stateW, "STATE", "PATH")
+	for _, r := range rows {
+		fmt.Printf("%-*s  %s  %s\n", nameW, r.name, colorState(r.state, stateW), r.path)
+	}
+	return nil
+}
+
+var stateColor = map[syncState]string{
+	stateClean:       "\x1b[32m",
+	stateAhead:       "\x1b[33m",
+	stateBehind:      "\x1b[36m",
+	stateConflict:    "\x1b[31m",
+	stateNeverPushed: "\x1b[35m",
+	stateMissing:     "\x1b[31m",
+}
+
+// useColor is resolved once: colour only when stdout is a terminal, so pipes
+// and redirects stay plain text.
+var useColor = os.Getenv("NO_COLOR") == "" && isTerminal(os.Stdout)
+
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
+// colorState pads before wrapping so the escape bytes never count towards
+// column width.
+func colorState(s string, width int) string {
+	padded := s + strings.Repeat(" ", max(0, width-utf8.RuneCountInString(s)))
+	c, ok := stateColor[syncState(s)]
+	if !ok || !useColor {
+		return padded
+	}
+	return c + padded + "\x1b[0m"
 }
 
 func describe(f config.File, rec state.Record, online bool) string {
