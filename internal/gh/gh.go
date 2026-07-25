@@ -56,6 +56,10 @@ func FindGistID(name string) (string, error) {
 	return ids[0], nil
 }
 
+func GetGist(id string) (Gist, error) {
+	return apiGist(nil, "api", "/gists/"+id)
+}
+
 func CreateGist(name string, content []byte) (Gist, error) {
 	body, err := gistBody(name, content, Description(name))
 	if err != nil {
