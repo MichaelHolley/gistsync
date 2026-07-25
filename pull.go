@@ -64,7 +64,7 @@ func runPull(args []string) error {
 			fmt.Printf("%s is already up to date with %s\n", entry.Path, gistURL(gist.ID))
 			return nil
 		case stateAhead, stateConflict:
-			return fmt.Errorf("pull: %w", refuse("pull", entry, gist.ID, s))
+			return fmt.Errorf("pull: %w", refuse("pull", entry, record, s))
 		}
 	}
 

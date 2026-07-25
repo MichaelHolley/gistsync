@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MichaelHolley/gistsync/internal/config"
+	"github.com/MichaelHolley/gistsync/internal/state"
 )
 
 func trackedFile(cmd, name string) (config.File, error) {
@@ -20,11 +21,14 @@ func trackedFile(cmd, name string) (config.File, error) {
 
 // refuse explains a blocked transfer in the terms the user needs mid-task: what
 // diverged, where both copies live, and what each override actually does.
-func refuse(cmd string, entry config.File, gistID string, s syncState) error {
+func refuse(cmd string, entry config.File, rec state.Record, s syncState) error {
 	var cause string
 	switch s {
 	case stateConflict:
 		cause = "both the local file and the gist changed since the last sync"
+		if rec.LastSyncedHash == "" && rec.LastSyncedGistSHA == "" {
+			cause = "this device has never synced it, so the local file and the gist have no common version"
+		}
 	case stateBehind:
 		cause = "the gist changed since the last sync, so pushing would discard it"
 	case stateAhead:
@@ -36,5 +40,5 @@ func refuse(cmd string, entry config.File, gistID string, s syncState) error {
 Compare them, then choose a winner:
   gistsync push --force %s   local wins, overwrites the gist
   gistsync pull --force %s   remote wins, overwrites the local file`,
-		cmd, entry.Name, s, cause, entry.Path, gistURL(gistID), entry.Name, entry.Name)
+		cmd, entry.Name, s, cause, entry.Path, gistURL(rec.GistID), entry.Name, entry.Name)
 }

@@ -19,10 +19,10 @@ Usage:
 Commands:
   init                          create ~/.gistsync/ with config.toml and state.json
   add <path> [--name <name>]    track a file locally
-  link <name>                   adopt an existing gist for a name in config.toml
+  link <name> [path]            track an existing gist, at path on this device
   rm <name>                     stop tracking a file on this device
   status                        show clean / ahead / behind / conflict per file
-  list                          show tracked names, local paths, and gist URLs
+  list [--remote]               show tracked files, or every gist on the account
   push <name> [--force]         upload local file to its gist
   pull <name> [--force]         write gist content to the local file
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"sort"
 	"strings"
 )
 
@@ -70,6 +71,35 @@ func FindGistID(name string) (string, error) {
 		return "", nil
 	}
 	return ids[0], nil
+}
+
+type Summary struct {
+	Name string
+	ID   string
+}
+
+// ListGists returns every gist whose description carries the gistsync prefix,
+// sorted by logical name.
+func ListGists() ([]Summary, error) {
+	out, err := run(nil, "api", "--paginate", "/gists?per_page=100",
+		"--jq", fmt.Sprintf(`.[] | select(.description | startswith(%q)) | [.description, .id] | @tsv`, descriptionPrefix))
+	if err != nil {
+		return nil, err
+	}
+
+	var summaries []Summary
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		description, id, ok := strings.Cut(line, "\t")
+		if !ok {
+			continue
+		}
+		summaries = append(summaries, Summary{
+			Name: strings.TrimPrefix(description, descriptionPrefix),
+			ID:   id,
+		})
+	}
+	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
+	return summaries, nil
 }
 
 func GetGist(id string) (Gist, error) {

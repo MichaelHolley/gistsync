@@ -60,34 +60,45 @@ That creates the secret gist and prints its URL. The gist's description is `gist
 
 ## Second device
 
-`config.toml` is authored by hand, per device, because the path differs on every machine.
-The name is the bridge between them.
+The name is the bridge; the path differs on every machine, so you give it once to `link`.
 
 ```bash
 gistsync init
 ```
 
-Add the entry to `~/.gistsync/config.toml` (`%USERPROFILE%\.gistsync\config.toml` on
-Windows):
-
-```toml
-[[file]]
-name = "vimrc"
-path = "C:/Users/me/_vimrc"
+```bash
+gistsync list --remote
 ```
 
-Then find the gist by its description and fetch it:
+That shows every gistsync gist on your account and which are tracked here — useful when you
+have forgotten what you named things.
 
 ```bash
-gistsync link vimrc
+gistsync link vimrc C:/Users/me/_vimrc
 ```
+
+`link` finds the gist by its description, writes the `[[file]]` entry into this device's
+`config.toml`, and records the gist ID. No gist ID is ever copied between machines by hand.
+The path may point at a file that does not exist yet — that is the usual case.
 
 ```bash
 gistsync pull vimrc
 ```
 
-`link` records the gist ID locally and nothing else; `pull` writes the file, creating parent
-directories if needed. No gist ID is ever copied between machines by hand.
+`pull` writes the file, creating parent directories if needed. `link` never touches your
+files.
+
+If the name is already in `config.toml`, the path is optional: `gistsync link vimrc` just
+records the gist ID.
+
+### When the file is already there
+
+`link` compares the two copies and tells you where you stand:
+
+- **identical** — it records the sync markers and you are `clean` immediately, no transfer.
+- **different** — it links anyway and prints both locations. Nothing has been overwritten,
+  and the state is `conflict`: the two copies have no version in common, so `push` and
+  `pull` both refuse until you pick a winner with `--force`.
 
 ## Everyday use
 
@@ -100,7 +111,7 @@ gistsync status
 | `clean`           | both sides match the last sync                     | nothing           |
 | `ahead`           | you edited locally                                 | `push`            |
 | `behind`          | the other machine pushed                           | `pull`            |
-| `conflict`        | both changed since the last sync                   | compare, then force one way |
+| `conflict`        | both changed since the last sync, or the two copies never shared one | compare, then force one way |
 | `never pushed`    | no gist yet for this name                          | `push` or `link`  |
 | `missing locally` | the configured path does not exist                 | `pull`            |
 
@@ -135,8 +146,9 @@ delete the gist yourself on github.com if you want it gone.
 
 Both files sit in `~/.gistsync/` (`%USERPROFILE%\.gistsync\` on Windows):
 
-- **`config.toml`** — yours to edit. One `[[file]]` block per tracked file, with the name and
-  this machine's absolute path.
+- **`config.toml`** — one `[[file]]` block per tracked file, with the name and this
+  machine's absolute path. `add` and `link` write it for you; editing it by hand is
+  supported but never required.
 - **`state.json`** — the tool's. Gist IDs and last-sync fingerprints, per device. Editing it
   by hand is how you get a wrong answer from `status`.
 

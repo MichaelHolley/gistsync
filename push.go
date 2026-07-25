@@ -93,7 +93,7 @@ func pushContent(entry config.File, record state.Record, content []byte, force b
 		case stateClean:
 			return gh.Gist{}, nil
 		case stateBehind, stateConflict:
-			return gh.Gist{}, refuse("push", entry, record.GistID, s)
+			return gh.Gist{}, refuse("push", entry, record, s)
 		}
 	}
 	return gh.UpdateGist(record.GistID, entry.Name, content)

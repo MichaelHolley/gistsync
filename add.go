@@ -23,7 +23,7 @@ func runAdd(args []string) error {
 		return errors.New("add: expected exactly one path")
 	}
 
-	path, err := filepath.Abs(fs.Arg(0))
+	path, err := resolvePath(fs.Arg(0))
 	if err != nil {
 		return fmt.Errorf("add: %w", err)
 	}
@@ -59,7 +59,7 @@ func runAdd(args []string) error {
 		return fmt.Errorf("add: %w", err)
 	}
 	if existing != "" {
-		return fmt.Errorf("add: a gist for %q already exists (%s) — add the entry to config.toml and run 'gistsync link %s' instead", logicalName, gistURL(existing), logicalName)
+		return fmt.Errorf("add: a gist for %q already exists (%s) — run 'gistsync link %s %s' instead to adopt it", logicalName, gistURL(existing), logicalName, path)
 	}
 
 	cfg.Add(config.File{Name: logicalName, Path: path})
@@ -75,6 +75,19 @@ func runAdd(args []string) error {
 // deriveName drops leading dots so ~/.vimrc becomes the logical name "vimrc".
 func deriveName(path string) string {
 	return strings.TrimLeft(filepath.Base(path), ".")
+}
+
+// resolvePath expands a leading ~ itself, since cmd.exe and PowerShell leave
+// it for the program to deal with.
+func resolvePath(path string) (string, error) {
+	if path == "~" || strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		path = filepath.Join(home, path[1:])
+	}
+	return filepath.Abs(path)
 }
 
 func checkTrackable(path string) error {
