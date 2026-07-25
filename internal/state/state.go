@@ -66,6 +66,16 @@ func (s *State) Find(name string) (Record, bool) {
 	return Record{}, false
 }
 
+func (s *State) Put(r Record) {
+	for i := range s.Files {
+		if s.Files[i].Name == r.Name {
+			s.Files[i] = r
+			return
+		}
+	}
+	s.Files = append(s.Files, r)
+}
+
 func (s *State) Remove(name string) bool {
 	for i, r := range s.Files {
 		if r.Name == name {

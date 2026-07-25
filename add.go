@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/MichaelHolley/gistsync/internal/config"
+	"github.com/MichaelHolley/gistsync/internal/gh"
 )
 
 func runAdd(args []string) error {
@@ -49,6 +51,17 @@ func runAdd(args []string) error {
 		return fmt.Errorf("add: name %q is already tracked (%s)", logicalName, existing.Path)
 	}
 
+	if err := gh.Preflight(); err != nil {
+		return fmt.Errorf("add: %w", err)
+	}
+	existing, err := gh.FindGistID(logicalName)
+	if err != nil {
+		return fmt.Errorf("add: %w", err)
+	}
+	if existing != "" {
+		return fmt.Errorf("add: a gist for %q already exists (%s) — add the entry to config.toml and run 'gistsync link %s' instead", logicalName, gistURL(existing), logicalName)
+	}
+
 	cfg.Add(config.File{Name: logicalName, Path: path})
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("add: %w", err)
@@ -80,12 +93,17 @@ func checkTrackable(path string) error {
 	if err != nil {
 		return err
 	}
-	if isBinary(data) {
-		return fmt.Errorf("%s: looks binary (contains a NUL byte) — gistsync tracks text files only", path)
-	}
-	return nil
+	return checkContent(path, data)
 }
 
-func isBinary(data []byte) bool {
-	return bytes.IndexByte(data, 0) >= 0
+// checkContent enforces the text-only guarantee. Invalid UTF-8 is rejected
+// because the gist API is JSON, which cannot carry those bytes unaltered.
+func checkContent(path string, data []byte) error {
+	if bytes.IndexByte(data, 0) >= 0 {
+		return fmt.Errorf("%s: looks binary (contains a NUL byte) — gistsync tracks text files only", path)
+	}
+	if !utf8.Valid(data) {
+		return fmt.Errorf("%s: not valid UTF-8 — gistsync cannot transfer it byte-exact", path)
+	}
+	return nil
 }
