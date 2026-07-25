@@ -16,9 +16,25 @@ func Description(name string) string { return descriptionPrefix + name }
 type Gist struct {
 	ID      string `json:"id"`
 	HTMLURL string `json:"html_url"`
+	Files   map[string]struct {
+		Content   string `json:"content"`
+		Truncated bool   `json:"truncated"`
+	} `json:"files"`
 	History []struct {
 		Version string `json:"version"`
 	} `json:"history"`
+}
+
+// Content returns the gist file stored under name, byte-exact.
+func (g Gist) Content(name string) ([]byte, error) {
+	f, ok := g.Files[name]
+	if !ok {
+		return nil, fmt.Errorf("gist %s has no file named %q", g.ID, name)
+	}
+	if f.Truncated {
+		return nil, fmt.Errorf("gist %s is too large for gistsync to transfer", g.ID)
+	}
+	return []byte(f.Content), nil
 }
 
 // Version is the gist's current commit SHA.

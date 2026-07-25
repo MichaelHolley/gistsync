@@ -14,7 +14,8 @@ import (
 
 func runPush(args []string) error {
 	fs := newFlagSet("push")
-	if err := parseFlags(fs, args, "Usage: gistsync push <name>"); err != nil {
+	force := fs.Bool("force", false, "overwrite the gist with local content")
+	if err := parseFlags(fs, args, "Usage: gistsync push <name> [--force]"); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
@@ -22,13 +23,9 @@ func runPush(args []string) error {
 	}
 	name := fs.Arg(0)
 
-	cfg, err := config.Load()
+	entry, err := trackedFile("push", name)
 	if err != nil {
-		return fmt.Errorf("push: %w", err)
-	}
-	entry, ok := cfg.Find(name)
-	if !ok {
-		return fmt.Errorf("push: %q is not tracked — see 'gistsync list'", name)
+		return err
 	}
 
 	content, err := os.ReadFile(entry.Path)
@@ -49,9 +46,13 @@ func runPush(args []string) error {
 	}
 	record, _ := st.Find(name)
 
-	gist, err := pushContent(name, record.GistID, content)
+	gist, err := pushContent(entry, record, content, *force)
 	if err != nil {
 		return fmt.Errorf("push: %w", err)
+	}
+	if gist.ID == "" {
+		fmt.Printf("%s is already up to date with %s\n", entry.Path, gistURL(record.GistID))
+		return nil
 	}
 
 	st.Put(state.Record{
@@ -68,19 +69,34 @@ func runPush(args []string) error {
 	return nil
 }
 
-func pushContent(name, gistID string, content []byte) (gh.Gist, error) {
-	if gistID != "" {
-		return gh.UpdateGist(gistID, name, content)
+// pushContent returns a zero Gist when the gist already matches local content
+// and there is nothing to upload.
+func pushContent(entry config.File, record state.Record, content []byte, force bool) (gh.Gist, error) {
+	if record.GistID == "" {
+		existing, err := gh.FindGistID(entry.Name)
+		if err != nil {
+			return gh.Gist{}, err
+		}
+		if existing != "" {
+			return gh.Gist{}, fmt.Errorf("a gist for %q already exists (%s) — run 'gistsync link %s' to adopt it", entry.Name, gistURL(existing), entry.Name)
+		}
+		return gh.CreateGist(entry.Name, content)
 	}
 
-	existing, err := gh.FindGistID(name)
+	gist, err := gh.GetGist(record.GistID)
 	if err != nil {
 		return gh.Gist{}, err
 	}
-	if existing != "" {
-		return gh.Gist{}, fmt.Errorf("a gist for %q already exists (%s) — run 'gistsync link %s' to adopt it", name, gistURL(existing), name)
+
+	if !force {
+		switch s := classify(record, hashContent(content), gist.Version()); s {
+		case stateClean:
+			return gh.Gist{}, nil
+		case stateBehind, stateConflict:
+			return gh.Gist{}, refuse("push", entry, record.GistID, s)
+		}
 	}
-	return gh.CreateGist(name, content)
+	return gh.UpdateGist(record.GistID, entry.Name, content)
 }
 
 func hashContent(content []byte) string {

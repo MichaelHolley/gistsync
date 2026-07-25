@@ -29,7 +29,7 @@ Commands:
 Run 'gistsync <command> --help' for command-specific flags.
 `
 
-var plannedCommands = []string{"link", "pull"}
+var plannedCommands = []string{"link"}
 
 func main() {
 	err := run(os.Args[1:])
@@ -84,6 +84,8 @@ func run(args []string) error {
 		return runPush(args[1:])
 	case "status":
 		return runStatus(args[1:])
+	case "pull":
+		return runPull(args[1:])
 	default:
 		for _, planned := range plannedCommands {
 			if cmd == planned {
