@@ -8,8 +8,6 @@ of guessing.
 **What it is not:** not a folder sync, not a background daemon, not a merge tool. It never
 watches files, never syncs on its own, never merges, and never deletes a gist.
 
-Why it works this way: [SPEC.md](SPEC.md).
-
 ## Prerequisites
 
 The [GitHub CLI](https://cli.github.com) is the only route to GitHub — gistsync holds no
