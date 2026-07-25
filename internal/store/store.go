@@ -45,6 +45,29 @@ func Init() (dir string, created bool, err error) {
 	return dir, configCreated || stateCreated, nil
 }
 
+// WriteFileAtomic writes via a temp file in the destination directory and
+// renames, so an interrupted write cannot truncate the existing file.
+func WriteFileAtomic(path string, contents []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+
+	if _, err := tmp.Write(contents); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), perm); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
+}
+
 func createIfMissing(path, contents string) (bool, error) {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if errors.Is(err, os.ErrExist) {

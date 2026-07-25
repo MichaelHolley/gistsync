@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/MichaelHolley/gistsync/internal/store"
 )
@@ -28,13 +29,37 @@ Commands:
 Run 'gistsync <command> --help' for command-specific flags.
 `
 
-var plannedCommands = []string{"add", "link", "rm", "status", "list", "push", "pull"}
+var plannedCommands = []string{"link", "status", "push", "pull"}
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	err := run(os.Args[1:])
+	if errors.Is(err, flag.ErrHelp) {
+		return
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "gistsync:", err)
 		os.Exit(1)
 	}
+}
+
+func newFlagSet(name string) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	return fs
+}
+
+// parseFlags returns flag.ErrHelp after printing usageLine when help was
+// requested; main treats that as a successful exit.
+func parseFlags(fs *flag.FlagSet, args []string, usageLine string) error {
+	err := fs.Parse(flagsFirst(fs, args))
+	if errors.Is(err, flag.ErrHelp) {
+		fmt.Println(usageLine)
+		return err
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", fs.Name(), err)
+	}
+	return nil
 }
 
 func run(args []string) error {
@@ -49,6 +74,12 @@ func run(args []string) error {
 		return nil
 	case "init":
 		return runInit(args[1:])
+	case "add":
+		return runAdd(args[1:])
+	case "list":
+		return runList(args[1:])
+	case "rm":
+		return runRm(args[1:])
 	default:
 		for _, planned := range plannedCommands {
 			if cmd == planned {
@@ -59,15 +90,43 @@ func run(args []string) error {
 	}
 }
 
-func runInit(args []string) error {
-	fs := flag.NewFlagSet("init", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Println("Usage: gistsync init")
-			return nil
+// flagsFirst reorders args so flags precede positional arguments, letting
+// 'gistsync add <path> --name x' work as documented — the flag package
+// otherwise stops parsing at the first positional argument.
+func flagsFirst(fs *flag.FlagSet, args []string) []string {
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			positional = append(positional, args[i+1:]...)
+			return append(flags, positional...)
+		case strings.HasPrefix(arg, "-") && arg != "-":
+			flags = append(flags, arg)
+			if !strings.Contains(arg, "=") && takesValue(fs, arg) && i+1 < len(args) {
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			positional = append(positional, arg)
 		}
-		return fmt.Errorf("init: %w", err)
+	}
+	return append(flags, positional...)
+}
+
+func takesValue(fs *flag.FlagSet, arg string) bool {
+	f := fs.Lookup(strings.TrimLeft(arg, "-"))
+	if f == nil {
+		return false
+	}
+	boolFlag, ok := f.Value.(interface{ IsBoolFlag() bool })
+	return !ok || !boolFlag.IsBoolFlag()
+}
+
+func runInit(args []string) error {
+	fs := newFlagSet("init")
+	if err := parseFlags(fs, args, "Usage: gistsync init"); err != nil {
+		return err
 	}
 	if fs.NArg() > 0 {
 		return fmt.Errorf("init: unexpected argument %q", fs.Arg(0))
