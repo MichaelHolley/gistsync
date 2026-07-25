@@ -29,8 +29,6 @@ Commands:
 Run 'gistsync <command> --help' for command-specific flags.
 `
 
-var plannedCommands = []string{"link"}
-
 func main() {
 	err := run(os.Args[1:])
 	if errors.Is(err, flag.ErrHelp) {
@@ -86,12 +84,9 @@ func run(args []string) error {
 		return runStatus(args[1:])
 	case "pull":
 		return runPull(args[1:])
+	case "link":
+		return runLink(args[1:])
 	default:
-		for _, planned := range plannedCommands {
-			if cmd == planned {
-				return fmt.Errorf("%s: not implemented yet", cmd)
-			}
-		}
 		return fmt.Errorf("unknown command %q\n\n%s", cmd, usage)
 	}
 }
