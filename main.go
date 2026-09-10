@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/MichaelHolley/gistsync/internal/store"
 )
+
+var version = "dev"
 
 const usage = `gistsync — sync individual files across devices via GitHub Gists
 
@@ -25,6 +28,7 @@ Commands:
   list [--remote]               show tracked files, or every gist on the account
   push <name> [--force]         upload local file to its gist
   pull <name> [--force]         write gist content to the local file
+  version                       show the installed gistsync version
 
 Run 'gistsync <command> --help' for command-specific flags.
 `
@@ -69,6 +73,15 @@ func run(args []string) error {
 	switch cmd := args[0]; cmd {
 	case "help", "--help", "-h":
 		fmt.Print(usage)
+		return nil
+	case "version", "--version", "-v":
+		resolvedVersion := version
+		if resolvedVersion == "dev" {
+			if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+				resolvedVersion = info.Main.Version
+			}
+		}
+		fmt.Printf("gistsync %s\n", resolvedVersion)
 		return nil
 	case "init":
 		return runInit(args[1:])
