@@ -19,23 +19,60 @@ gh auth login
 
 The `gist` scope is required.
 
-## Build
+## Install
+
+Every install route requires the authenticated `gh` setup above.
+
+### Prebuilt binary
+
+Download the archive for your operating system and architecture from the
+[latest release](https://github.com/MichaelHolley/gistsync/releases/latest), then extract it:
+
+```bash
+tar -xzf gistsync_*_darwin_arm64.tar.gz
+```
+
+Replace `darwin_arm64` with `darwin_amd64`, `linux_amd64`, or `linux_arm64` as needed.
+Each archive includes `README.md` and `LICENSE`; `checksums.txt` on the release page covers
+all four archives.
+
+macOS may quarantine an unsigned downloaded binary. Clear the flag before installing it:
+
+```bash
+xattr -d com.apple.quarantine gistsync
+```
+
+Put the binary on your `PATH`:
+
+```bash
+sudo install gistsync /usr/local/bin/gistsync
+```
+
+### Go install
+
+With Go 1.26.5 or newer:
+
+```bash
+go install github.com/MichaelHolley/gistsync@latest
+```
+
+### Build from source
+
+With Go 1.26.5 or newer, from a source checkout:
 
 ```bash
 go build -o gistsync .
 ```
 
-Cross-compile for the other machine (no CGO, single static binary):
+Prebuilt Windows binaries are not offered yet, but the source is Windows-compatible and
+can be cross-compiled:
 
 ```bash
 GOOS=windows GOARCH=amd64 go build -o gistsync.exe .
 ```
 
-```bash
-GOOS=darwin GOARCH=arm64 go build -o gistsync .
-```
-
-Put the binary anywhere on your `PATH`.
+Confirm the installed version with `gistsync version`; `gistsync --version` and
+`gistsync -v` are equivalent.
 
 ## First device
 
@@ -158,3 +195,23 @@ Both files sit in `~/.gistsync/` (`%USERPROFILE%\.gistsync\` on Windows):
 
 Content moves byte-exact in both directions: CRLF stays CRLF, a missing trailing newline
 stays missing. Text only — binary and non-UTF-8 files are refused rather than mangled.
+
+## Releasing
+
+Push a semantic version tag to create a GitHub Release automatically:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow builds static macOS and Linux binaries for amd64 and arm64, packages
+the documentation and license, publishes checksums, and groups generated notes by
+Conventional Commits prefix. It uses only the repository's built-in workflow token.
+
+After the first release, verify both distribution paths with a downloaded binary and with
+`go install github.com/MichaelHolley/gistsync@latest`, then run `gistsync version`.
+
+Adding prebuilt Windows support later requires adding `windows` to the GoReleaser target
+matrix, selecting zip archives for Windows, and documenting and testing SmartScreen, ANSI
+output, and file-replacement behavior on Windows itself.

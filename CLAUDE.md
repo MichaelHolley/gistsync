@@ -12,11 +12,19 @@ go build -o gistsync .
 go vet ./... && gofmt -l .
 ```
 
+```bash
+go run . version
+```
+
+```bash
+goreleaser release --snapshot --clean
+```
+
 ## Architecture
 
 A single-binary Go CLI that syncs individual text files between machines, one secret GitHub Gist per file. No daemon, no merge, no folder sync.
 
-- **Root package `main`** — one file per command (`add.go`, `link.go`, `push.go`, `pull.go`, `status.go`, `list.go`, `rm.go`), dispatched from `run()` in `main.go`. `transfer.go` holds the shared `trackedFile` lookup and the `refuse` error text used by both transfer commands.
+- **Root package `main`** — one file per stateful command (`add.go`, `link.go`, `push.go`, `pull.go`, `status.go`, `list.go`, `rm.go`), dispatched from `run()` in `main.go`. The inline `version` command uses a release linker value or Go module build info. `transfer.go` holds the shared `trackedFile` lookup and the `refuse` error text used by both transfer commands.
 - **`internal/store`** — resolves `~/.gistsync/`, creates it, and provides `WriteFileAtomic` (temp file + rename) used for every write, including local file writes in `pull`.
 - **`internal/config`** — `config.toml`, written by `add` and `link` (hand-editable, never required). Maps a logical `name` to this machine's absolute `path`. Never synced between devices.
 - **`internal/state`** — `state.json`, tool-managed. Per name: `gist_id`, `last_synced_hash` (sha256 of local content), `last_synced_gist_sha` (gist commit SHA).
