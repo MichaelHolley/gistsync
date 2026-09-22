@@ -74,6 +74,10 @@ GOOS=windows GOARCH=amd64 go build -o gistsync.exe .
 Confirm the installed version with `gistsync version`; `gistsync --version` and
 `gistsync -v` are equivalent.
 
+If you use `go install .` instead, it lands in `$(go env GOBIN)` (default
+`$(go env GOPATH)/bin`, usually `~/go/bin`). Make sure that directory is on your `PATH`, or
+the `gistsync` command won't be found after install.
+
 ## First device
 
 ```bash
